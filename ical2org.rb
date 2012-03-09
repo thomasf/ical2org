@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby
+# -*- coding: utf-8 -*-
 #
 # Converts iCalendar (rfc2445) to org-mode files using the
 # tremendous RiCal gem.
@@ -30,11 +31,12 @@ DEFAULT_TZ = 'Europe/Berlin'
 ::RiCal::PropertyValue::DateTime::default_tzid = DEFAULT_TZ # :floating
 
 # timespan for filtering (which should really be done by your server/app) and recurrences limitation
-FILTER_SPAN = [Date.today - 90, Date.today + 400]
+FILTER_SPAN = [Date.today - 7, Date.today + 400]
 
 # org-mode ignores weekdays, but it should match for convenience
 # WEEKDAYS = %w{So Mo Di Mi Do Fr Sa} # german weekdays
-WEEKDAYS = %w{Su Mo Tu We Th Fr Sa} # english weekdays
+# WEEKDAYS = %w{Su Mo Tu We Th Fr Sa} # english weekdays
+WEEKDAYS = %w{Sön Mån Tis Ons Tors Fre Lör} # swedish weekdays
 
 # org date (ISO 8601)
 def orgDate(t)
@@ -159,6 +161,43 @@ OrgEventTemplate = ERB.new <<-'EOT', nil, "%<>"
   :END:
 EOT
 
+ThomasOrgEventTemplate = ERB.new <<-'EOT', nil, "%<>"
+<%#-*- coding: UTF-8 -*-%>
+** <%= ev.summary %><%= !ev.status.nil? ? ( " (" + ev.status + ")" ) : "" %>
+:PROPERTIES:
+:ID: <%= ev.uid %>
+:icalCategories: <%= ev.categories.join(" ") %>
+:END:
+% if (!ev.recurs?)
+
+<%= orgTimeSpanTZ(ev.dtstart, ev.dtend) %>
+% end
+% if (!ev.location.nil?)
+
+Location: <%= ev.location %>
+% end
+<%= result[:description] %>
+% if (!ev.organizer.nil?)
+
+Organizer: <%= ev.organizer %>
+% end
+% if (!ev.url.nil?)
+
+<%= ev.url %>
+% end
+% if (ev.recurs?) then
+%   if (isOrgCompatRepeater?(ev))
+
+Recurs: <%= orgTimeSpan(ev.dtstart, ev.dtend, orgRepeaterClause(ev)) %>
+%   else
+
+Occurrences: <% ev.occurrences(:overlapping => FILTER_SPAN).each { |occ| %><%= orgTimeSpan(occ.dtstart, occ.dtend) %> <% } %>
+%   end
+
+RRULE: <%= ev.rrule  %>
+% end
+EOT
+
 # this can be used to fix up stuff before the template processing starts
 def evaluateEvent(ev)
   {
@@ -169,7 +208,7 @@ end
 
 def orgEventSection(ev)
   result = evaluateEvent(ev)
-  OrgEventTemplate.result(binding)
+  ThomasOrgEventTemplate.result(binding)
 rescue StandardError => e
   putError(e, ev)
 end
@@ -213,6 +252,30 @@ OrgTodoTemplate = ERB.new <<-'EOT', nil, "%<>"
   :END:
 EOT
 
+ThomasOrgTodoTemplate = ERB.new <<-'EOT', nil, "%<>"
+<%#-*- coding: UTF-8 -*-%>
+** <%= results[:orgKeyword] %> <%= todo.summary %>
+<% if (!todo.due.nil?) then %>DEADLINE: <%= orgDateTime(todo.finish_time) %><% end %><% if (!todo.dtstart.nil?) then %> SCHEDULED: <%= orgDateTime(todo.dtstart) %><% end %>
+:PROPERTIES:
+:ID: <%= todo.uid %>
+:icalCategories: <%= todo.categories.join(" ") %>
+:icalPriority:  <%= todo.priority %>
+:END:
+% if (!todo.location.nil?)
+
+Location: <%= todo.location %>
+end
+% if (!todo.organizer.nil?)
+
+Organizer: <%= todo.organizer %>
+% end
+% if (!todo.url.nil?)
+
+<%= todo.url %>
+% end
+<%= todo.description %>
+EOT
+
 # org keywords for ical completion states (see the RFC)
 OrgKeywordForCompleted = {
   "COMPLETED" => "DONE",  
@@ -233,7 +296,7 @@ end
 # return org TODO section
 def orgTodoSection(todo)
   results = evaluateTodo(todo)
-  OrgTodoTemplate.result(binding)
+  ThomasOrgTodoTemplate.result(binding)
 rescue StandardError => e
   putError(e, todo)
 end
