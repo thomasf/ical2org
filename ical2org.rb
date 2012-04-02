@@ -276,7 +276,7 @@ EOT
 
 ThomasOrgTodoTemplate = ERB.new <<-'EOT', nil, "%<>"
 <%#-*- coding: UTF-8 -*-%>
-** <%= results[:orgKeyword] %> <%= todo.summary %>
+** <%= results[:orgKeyword] %><%= results[:orgPrio] %><%= todo.summary %>
 <% if (!todo.due.nil?) then %>DEADLINE: <%= orgDateTime(todo.finish_time) %><% end %><% if (!todo.dtstart.nil?) then %> SCHEDULED: <%= orgDateTime(todo.dtstart) %><% end %>
 :PROPERTIES:
 :ID: <%= todo.uid %>
